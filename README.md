@@ -4,12 +4,12 @@
 ```
          |<----timestamp---->|<-----ExtraID----->|
 layout:  [-------------------|----|------|-------]
-         0                   32                  64
+         64                  32                  0
 
 
          |<InstID>|<-DataID->|<---NextID--->|
 ExtraID: [--------|----------|--------------]
-         0        8          18             32
+         32       24         14             0
 
 InstID:  Machine Instance ID, like IP, 8bit.
 DataID:  Data ID, like Mysql table ID Or UserID, 10bit.
