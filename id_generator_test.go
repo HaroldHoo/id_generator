@@ -12,6 +12,7 @@ import (
 	"fmt"
 	"testing"
 	"time"
+	"sync"
 )
 
 func TestDebugPrint(t *testing.T) {
@@ -59,7 +60,54 @@ func TestErrNextIdOutOf(t *testing.T) {
 	fmt.Println("OK")
 }
 
+func TestGoroutine(t *testing.T){
+	time.Sleep(1 * time.Second)
+	fmt.Printf("\n----------------- TestGoroutine\n")
+	m := make(map[uint64]int)
+	var (
+		mu sync.Mutex
+	)
+	c1 := make(chan int)
+	c2 := make(chan int)
+	go func(c chan int){
+		for i := 0; i < 8191; i++ {
+			id,e := NextId(255)
+			if e != nil {
+				fmt.Println(e)
+				break
+			}
+			mu.Lock()
+			m[id] = 0
+			mu.Unlock()
+		}
+		c<-1
+	}(c1)
+	go func(c chan int){
+		for i := 0; i < 8191; i++ {
+			id,e := NextId(255)
+			if e != nil {
+				fmt.Println(e)
+				break
+			}
+			mu.Lock()
+			m[id] = 0
+			mu.Unlock()
+		}
+		c<-1
+	}(c2)
+
+	<-c1
+	<-c2
+
+	if len(m) != 16382 {
+		t.Fatalf("%s(%d)\n", "goroutine not safe", len(m))
+	}
+
+	fmt.Println("OK")
+}
+
 func TestGenerator(t *testing.T) {
+	time.Sleep(1 * time.Second)
 	fmt.Printf("\n----------------- TestGenerator\n")
 	id := Init()
 
@@ -82,7 +130,7 @@ func TestGenerator(t *testing.T) {
 	var t1, t2, t3, t4, n1, n2, n3, n4 uint64
 	DefaultInstanceId = 212
 	for {
-		if time.Now().Nanosecond()/1e6 == 100 {
+		if time.Now().Nanosecond()/1e6 == 20 {
 			id.NextId(101)
 			t1 = id.timestamp
 			n1 = id.extraId.nextId
@@ -94,7 +142,7 @@ func TestGenerator(t *testing.T) {
 	}
 	time.Sleep(1 * time.Second)
 	for {
-		if time.Now().Nanosecond()/1e6 == 100 {
+		if time.Now().Nanosecond()/1e6 == 20 {
 			id.NextId(12)
 			t3 = id.timestamp
 			n3 = id.extraId.nextId
@@ -106,13 +154,13 @@ func TestGenerator(t *testing.T) {
 	}
 
 	if t1 != t2 || t3 != t4 {
-		t.Errorf("%s\n", "timestamp not equle")
+		t.Fatalf("%s\n", "timestamp not equle")
 	}
 	if n1 != n3 || n2 != n4 {
-		t.Errorf("%s\n", "nextId not init")
+		t.Fatalf("%s(%d,%d,%d,%d)\n", "nextId not init",n1,n3,n2,n4)
 	}
 	if n1 == n2 || n3 == n4 {
-		t.Errorf("%s\n", "nextId not unique at same time")
+		t.Fatalf("%s\n", "nextId not unique at same time")
 	}
 
 	fmt.Println("OK")
