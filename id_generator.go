@@ -13,6 +13,9 @@ import (
 	"strings"
 	"sync"
 	"time"
+	"os"
+	"strconv"
+	"syscall"
 )
 
 const (
@@ -23,7 +26,9 @@ const (
 
 var (
 	currentTimestamp  uint64
+	currentNextId     uint64
 	DefaultInstanceId uint64
+	DefaultCacheFile  string
 
 	ErrNextIdOutOf     = errors.New(fmt.Sprintf("nextID out of %d", MAX_NEXT_ID))
 	ErrDataIdOutOf     = errors.New(fmt.Sprintf("dataId out of %d", MAX_DATA_ID))
@@ -61,6 +66,67 @@ func NextId(dataId uint64) (ret uint64, err error) {
 	return id_gen.NextId(dataId)
 }
 
+var cacheFileHandler *os.File
+func cacheFile() *os.File{
+	if cacheFileHandler == nil{
+		var err error
+		cacheFileHandler, err = os.Create(DefaultCacheFile)
+		if err != nil {
+			panic(err)
+		}
+	}
+	return cacheFileHandler
+}
+
+func setTimestampCache(t uint64, u uint64){
+	if DefaultCacheFile == "" {
+		currentTimestamp = t
+		currentNextId = u
+		return
+	}
+
+	f := cacheFile()
+	syscall.Flock(int(f.Fd()), syscall.LOCK_EX)
+    defer syscall.Flock(int(f.Fd()), syscall.LOCK_UN)
+
+	f.Seek(0, os.SEEK_SET)
+	f.WriteString(fmt.Sprintf("%d", (t<<14|u)))
+	f.Sync()
+
+	return
+}
+
+func getTimestampCache() (t uint64, n uint64){
+	if DefaultCacheFile == "" {
+		return currentTimestamp, currentNextId
+	}
+
+	f := cacheFile()
+	syscall.Flock(int(f.Fd()), syscall.LOCK_SH)
+    defer syscall.Flock(int(f.Fd()), syscall.LOCK_UN)
+
+	f.Seek(0, os.SEEK_SET)
+	b := make([]byte, 46)
+	ns,err := f.Read(b)
+	if ns == 0 {
+		return 0, 0
+	}
+	if err != nil {
+		panic(err)
+	}
+
+	var num int64
+	num, err = strconv.ParseInt(strings.TrimRight(string(b), "\x00"), 10, 64)
+	if err != nil{
+		panic(err)
+	}
+
+	t = uint64(num) >> 14
+	n = uint64(num) & 16383
+
+	return
+}
+
 func (id *id_generator) NextId(dataId uint64) (ret uint64, err error) {
 	id.mu.Lock()
 	defer id.mu.Unlock()
@@ -68,10 +134,13 @@ func (id *id_generator) NextId(dataId uint64) (ret uint64, err error) {
 	id.result = 0
 	id.timestamp = uint64(time.Now().Unix())
 
-	if currentTimestamp == id.timestamp {
-		id.extraId.nextId++
+	t,n := getTimestampCache()
+	if t == id.timestamp {
+		n++
+		setTimestampCache(id.timestamp, n)
+		id.extraId.nextId = n
 	} else {
-		currentTimestamp = id.timestamp
+		setTimestampCache(id.timestamp, 0)
 		id.extraId.nextId = 0
 	}
 

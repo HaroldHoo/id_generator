@@ -16,6 +16,7 @@ import (
 )
 
 func TestDebugPrint(t *testing.T) {
+	// DefaultCacheFile = "/tmp/fff"
 	fmt.Printf("\n----------------- TestDebugPrint\n")
 	DefaultInstanceId = 123
 	id := New()
@@ -46,18 +47,28 @@ func TestErrDataIdOutOf(t *testing.T) {
 }
 
 func TestErrNextIdOutOf(t *testing.T) {
+	time.Sleep(1 * time.Second)
 	fmt.Printf("\n----------------- TestErrNextIdOutOf\n")
-	DefaultInstanceId = 255
-	id := New()
+	for {
+		if time.Now().Nanosecond()/1e6 == 20 {
+			DefaultInstanceId = 255
+			id := New()
 
-	var e error
-	for i := 0; i < 16384; i++ {
-		_, e = id.NextId(1022)
+			if DefaultCacheFile != "" {
+				setTimestampCache(uint64(time.Now().Unix()), 8000)
+			}
+			var e error
+			var tmp uint64
+			for i := 0; i < 16384; i++ {
+				tmp, e = id.NextId(1022)
+			}
+			if e != ErrNextIdOutOf {
+				t.Fatalf("\nmax next id: %v\n", GetNextId(tmp))
+			}
+			fmt.Println("OK")
+			break
+		}
 	}
-	if e != ErrNextIdOutOf {
-		t.Fail()
-	}
-	fmt.Println("OK")
 }
 
 func TestGoroutine(t *testing.T){
@@ -164,5 +175,19 @@ func TestGenerator(t *testing.T) {
 	}
 
 	fmt.Println("OK")
+}
+
+func BenchmarkViaFile(b *testing.B){
+	DefaultCacheFile = "/tmp/id_g_test"
+	for i:=0; i<b.N; i++ {
+		NextId(1)
+	}
+}
+
+func BenchmarkViaMem(b *testing.B){
+	DefaultCacheFile = ""
+	for i:=0; i<b.N; i++ {
+		NextId(1)
+	}
 }
 
