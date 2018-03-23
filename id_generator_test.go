@@ -16,7 +16,7 @@ import (
 )
 
 func TestDebugPrint(t *testing.T) {
-	// DefaultCacheFile = "/tmp/fff"
+	// DefaultCacheFile = "/tmp/id_g_test"
 	fmt.Printf("\n----------------- TestDebugPrint\n")
 	DefaultInstanceId = 123
 	id := New()
@@ -28,9 +28,9 @@ func TestErrInstanceIdOutOf(t *testing.T) {
 	fmt.Printf("\n----------------- TestErrInstanceIdOutOf\n")
 	DefaultInstanceId = 256
 	id := New()
-	_, e := id.NextId(1022)
+	_, e := id.NextId(1023)
 	if e != ErrInstanceIdOutOf {
-		t.Fail()
+		t.Fatal()
 	}
 	fmt.Println("OK")
 }
@@ -41,7 +41,7 @@ func TestErrDataIdOutOf(t *testing.T) {
 	id := New()
 	_, e := id.NextId(1024)
 	if e != ErrDataIdOutOf {
-		t.Fail()
+		t.Fatal()
 	}
 	fmt.Println("OK")
 }
@@ -59,7 +59,7 @@ func TestErrNextIdOutOf(t *testing.T) {
 			}
 			var e error
 			var tmp uint64
-			for i := 0; i < 16384; i++ {
+			for i := 0; i < 16385; i++ {
 				tmp, e = id.NextId(1022)
 			}
 			if e != ErrNextIdOutOf {
@@ -81,7 +81,7 @@ func TestGoroutine(t *testing.T){
 	c1 := make(chan int)
 	c2 := make(chan int)
 	go func(c chan int){
-		for i := 0; i < 8191; i++ {
+		for i := 0; i < 8192; i++ {
 			id,e := NextId(255)
 			if e != nil {
 				fmt.Println(e)
@@ -94,7 +94,7 @@ func TestGoroutine(t *testing.T){
 		c<-1
 	}(c1)
 	go func(c chan int){
-		for i := 0; i < 8191; i++ {
+		for i := 0; i < 8192; i++ {
 			id,e := NextId(255)
 			if e != nil {
 				fmt.Println(e)
@@ -110,7 +110,7 @@ func TestGoroutine(t *testing.T){
 	<-c1
 	<-c2
 
-	if len(m) != 16382 {
+	if len(m) != 16384 {
 		t.Fatalf("%s(%d)\n", "goroutine not safe", len(m))
 	}
 
@@ -127,15 +127,15 @@ func TestGenerator(t *testing.T) {
 		e       error
 		removed = make(map[uint64]int)
 	)
-	for i := 0; i < 16383; i++ {
+	for i := 0; i < 16384; i++ {
 		gid, e = id.NextId(1022)
 		if e != nil {
 			t.Fatal(e)
 		}
 		removed[gid] = 0
 	}
-	if len(removed) != 16383 {
-		t.Fail()
+	if len(removed) != 16384 {
+		t.Fatal()
 	}
 
 	var t1, t2, t3, t4, n1, n2, n3, n4 uint64
