@@ -10,12 +10,12 @@ package id_generator
 import (
 	"errors"
 	"fmt"
-	"strings"
-	"sync"
-	"time"
 	"os"
 	"strconv"
+	"strings"
+	"sync"
 	"syscall"
+	"time"
 )
 
 const (
@@ -66,9 +66,19 @@ func NextId(dataId uint64) (ret uint64, err error) {
 	return id_gen.NextId(dataId)
 }
 
+func SetDefaultCacheFile(f string) {
+	if DefaultCacheFile != "" {
+		// panic("The id_generator.DefaultCacheFile has been set.")
+		return
+	}
+
+	DefaultCacheFile = f
+}
+
 var cacheFileHandler *os.File
-func cacheFile() *os.File{
-	if cacheFileHandler == nil{
+
+func cacheFile() *os.File {
+	if cacheFileHandler == nil {
 		var err error
 		cacheFileHandler, err = os.Create(DefaultCacheFile)
 		if err != nil {
@@ -78,7 +88,7 @@ func cacheFile() *os.File{
 	return cacheFileHandler
 }
 
-func setTimestampCache(t uint64, u uint64){
+func setTimestampCache(t uint64, u uint64) {
 	if DefaultCacheFile == "" {
 		currentTimestamp = t
 		currentNextId = u
@@ -87,27 +97,27 @@ func setTimestampCache(t uint64, u uint64){
 
 	f := cacheFile()
 	syscall.Flock(int(f.Fd()), syscall.LOCK_EX)
-    defer syscall.Flock(int(f.Fd()), syscall.LOCK_UN)
+	defer syscall.Flock(int(f.Fd()), syscall.LOCK_UN)
 
 	f.Seek(0, os.SEEK_SET)
-	f.WriteString(fmt.Sprintf("%d", (t<<14|u)))
+	f.WriteString(fmt.Sprintf("%d", (t<<14 | u)))
 	f.Sync()
 
 	return
 }
 
-func getTimestampCache() (t uint64, n uint64){
+func getTimestampCache() (t uint64, n uint64) {
 	if DefaultCacheFile == "" {
 		return currentTimestamp, currentNextId
 	}
 
 	f := cacheFile()
-	syscall.Flock(int(f.Fd()), syscall.LOCK_SH)
-    defer syscall.Flock(int(f.Fd()), syscall.LOCK_UN)
+	syscall.Flock(int(f.Fd()), syscall.LOCK_EX)
+	defer syscall.Flock(int(f.Fd()), syscall.LOCK_UN)
 
 	f.Seek(0, os.SEEK_SET)
 	b := make([]byte, 46)
-	ns,err := f.Read(b)
+	ns, err := f.Read(b)
 	if ns == 0 {
 		return 0, 0
 	}
@@ -117,7 +127,7 @@ func getTimestampCache() (t uint64, n uint64){
 
 	var num int64
 	num, err = strconv.ParseInt(strings.TrimRight(string(b), "\x00"), 10, 64)
-	if err != nil{
+	if err != nil {
 		panic(err)
 	}
 
@@ -134,7 +144,7 @@ func (id *id_generator) NextId(dataId uint64) (ret uint64, err error) {
 	id.result = 0
 	id.timestamp = uint64(time.Now().Unix())
 
-	t,n := getTimestampCache()
+	t, n := getTimestampCache()
 	if t == id.timestamp {
 		n++
 		setTimestampCache(id.timestamp, n)
