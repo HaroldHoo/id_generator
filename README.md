@@ -21,6 +21,9 @@ NextId:  A Increment Number in the same second, 14bit.
 import "github.com/HaroldHoo/id_generator"
 ```
 ```
+// Set the cacheFile
+id_generator.SetDefaultCacheFile("/dev/shm/id_generator")
+
 // Machine Instance ID, like IP, 8bit
 id_generator.DefaultInstanceId = 154
 
@@ -30,3 +33,4 @@ var dataID = uint64(256)
 // generate
 id,_ := id_generator.NextId(dataID)
 ```
+
