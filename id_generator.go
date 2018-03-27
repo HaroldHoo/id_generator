@@ -44,10 +44,14 @@ type id_generator struct {
 	}
 	mu     sync.Mutex
 	result uint64
+	flock *syscall.Flock_t
 }
 
 func New() (id *id_generator) {
 	id = &id_generator{}
+	id.flock = &syscall.Flock_t{
+		Type:  syscall.F_WRLCK,
+	}
 	return
 }
 
@@ -88,7 +92,7 @@ func cacheFile() *os.File {
 	return cacheFileHandler
 }
 
-func setTimestampCache(t uint64, u uint64) {
+func (id *id_generator) setTimestampCache(t uint64, u uint64) {
 	if DefaultCacheFile == "" {
 		currentTimestamp = t
 		currentNextId = u
@@ -96,8 +100,8 @@ func setTimestampCache(t uint64, u uint64) {
 	}
 
 	f := cacheFile()
-	syscall.Flock(int(f.Fd()), syscall.LOCK_EX)
-	defer syscall.Flock(int(f.Fd()), syscall.LOCK_UN)
+	syscall.FcntlFlock(uintptr(f.Fd()), syscall.F_SETLKW, id.flock)
+	defer syscall.FcntlFlock(uintptr(f.Fd()), syscall.F_UNLCK, id.flock)
 
 	f.Seek(0, os.SEEK_SET)
 	f.WriteString(fmt.Sprintf("%d", (t<<14 | u)))
@@ -106,14 +110,14 @@ func setTimestampCache(t uint64, u uint64) {
 	return
 }
 
-func getTimestampCache() (t uint64, n uint64) {
+func (id *id_generator) getTimestampCache() (t uint64, n uint64) {
 	if DefaultCacheFile == "" {
 		return currentTimestamp, currentNextId
 	}
 
 	f := cacheFile()
-	syscall.Flock(int(f.Fd()), syscall.LOCK_EX)
-	defer syscall.Flock(int(f.Fd()), syscall.LOCK_UN)
+	syscall.FcntlFlock(uintptr(f.Fd()), syscall.F_SETLKW, id.flock)
+	defer syscall.FcntlFlock(uintptr(f.Fd()), syscall.F_UNLCK, id.flock)
 
 	f.Seek(0, os.SEEK_SET)
 	b := make([]byte, 46)
@@ -144,13 +148,13 @@ func (id *id_generator) NextId(dataId uint64) (ret uint64, err error) {
 	id.result = 0
 	id.timestamp = uint64(time.Now().Unix())
 
-	t, n := getTimestampCache()
+	t, n := id.getTimestampCache()
 	if t == id.timestamp {
 		n++
-		setTimestampCache(id.timestamp, n)
+		id.setTimestampCache(id.timestamp, n)
 		id.extraId.nextId = n
 	} else {
-		setTimestampCache(id.timestamp, 0)
+		id.setTimestampCache(id.timestamp, 0)
 		id.extraId.nextId = 0
 	}
 

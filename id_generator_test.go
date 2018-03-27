@@ -16,7 +16,7 @@ import (
 )
 
 func TestDebugPrint(t *testing.T) {
-	// DefaultCacheFile = "/tmp/id_g_test"
+	DefaultCacheFile = "/dev/shm/id_generator_test"
 	fmt.Printf("\n----------------- TestDebugPrint\n")
 	DefaultInstanceId = 123
 	id := New()
@@ -55,7 +55,7 @@ func TestErrNextIdOutOf(t *testing.T) {
 			id := New()
 
 			if DefaultCacheFile != "" {
-				setTimestampCache(uint64(time.Now().Unix()), 8000)
+				//id.setTimestampCache(uint64(time.Now().Unix()), 8000)
 			}
 			var e error
 			var tmp uint64
